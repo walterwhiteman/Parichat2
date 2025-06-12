@@ -19,8 +19,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("handleSubmit triggered!"); // <--- ADDED THIS LINE
     if (!message.trim()) return;
 
+    console.log("Calling onSendMessage with:", message); // <--- ADDED THIS LINE
     onSendMessage(message);
     setMessage('');
     handleTypingStop();
