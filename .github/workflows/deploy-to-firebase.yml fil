@@ -1,0 +1,53 @@
+name: Deploy Parichat2 to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main # Triggers the workflow on pushes to the 'main' branch
+
+  pull_request:
+    branches:
+      - main # Triggers for pull requests targeting 'main'
+    types: [opened, synchronize, reopened] # Runs on PR open, update, or reopen
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest # Runs on a fresh Ubuntu virtual machine
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4 # Action to clone your repository
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Recommended Node.js version, adjust if yours is different
+
+      - name: Install Dependencies
+        run: npm install # Installs project dependencies
+
+      - name: Build Project
+        run: npm run build # Builds your React app for production
+
+      - name: Deploy to Firebase Hosting (Live Channel)
+        if: github.ref == 'refs/heads/main' # Only deploy to 'live' on main branch pushes
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}' # Automatically provided by GitHub
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PARIYASHWORLD }}' # Your Firebase service account secret
+          projectId: pariyashworld # Your Firebase Project ID
+          channelId: live # Deploys to the live hosting URL
+        env:
+          # If your VITE_FIREBASE_API_KEY is sensitive and needed during build/runtime
+          VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}' # Example if you want to pass it
+
+      - name: Deploy to Firebase Hosting (Preview Channel for PRs)
+        if: github.event_name == 'pull_request' # Only deploy to 'preview' for PRs
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PARIYASHWORLD }}' # Your Firebase service account secret
+          projectId: pariyashworld # Your Firebase Project ID
+          channelId: preview # Deploys to a temporary preview URL for PRs
+        env:
+          VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}'
