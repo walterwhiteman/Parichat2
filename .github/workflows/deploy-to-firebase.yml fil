@@ -1,52 +1,62 @@
+# .github/workflows/deploy-to-firebase.yml
+
 name: Deploy Parichat2 to Firebase Hosting
 
 on:
   push:
     branches:
-      - main # Triggers the workflow on pushes to the 'main' branch
+      - main # This workflow triggers on pushes to the 'main' branch
 
   pull_request:
     branches:
-      - main # Triggers for pull requests targeting 'main'
-    types: [opened, synchronize, reopened] # Runs on PR open, update, or reopen
+      - main # This workflow triggers for pull requests opened against 'main'
+    types: [opened, synchronize, reopened] # Runs when a PR is opened, updated, or reopened
 
 jobs:
   build_and_deploy:
-    runs-on: ubuntu-latest # Runs on a fresh Ubuntu virtual machine
+    runs-on: ubuntu-latest # The type of virtual machine environment
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4 # Action to clone your repository
+        uses: actions/checkout@v4 # Action to clone your repository's code
 
-      - name: Set up Node.js
+      - name: Set up Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Recommended Node.js version, adjust if yours is different
+          node-version: '20' # Specify your Node.js version (adjust if needed, e.g., '18', '22')
+          cache: 'npm' # Caches npm dependencies to speed up builds
+          cache-dependency-path: 'package-lock.json' # Path to your package-lock.json
 
       - name: Install Dependencies
-        run: npm install # Installs project dependencies
+        run: npm install # Installs all packages listed in package.json
 
       - name: Build Project
-        run: npm run build # Builds your React app for production
+        run: npm run build # Runs the 'build' script defined in your package.json (e.g., for React/Vite)
 
-      - name: Deploy to Firebase Hosting (Live Channel)
-        if: github.ref == 'refs/heads/main' # Only deploy to 'live' on main branch pushes
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      # Step to deploy to Firebase Hosting (Live Channel) - runs ONLY when pushing directly to 'main'
+      - name: Deploy to Firebase Hosting (Live)
+        if: github.ref == 'refs/heads/main' # Condition: only run if the pushed branch is 'main'
+        uses: FirebaseExtended/action-hosting-deploy@v0 # Official GitHub Action for Firebase Hosting
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}' # Automatically provided by GitHub
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PARIYASHWORLD }}' # Your Firebase service account secret
+          repoToken: '${{ secrets.GITHUB_TOKEN }}' # Provided by GitHub for authentication
+          # This secret holds your Firebase Service Account JSON key
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PARIYASHWORLD }}'
           projectId: pariyashworld # Your Firebase Project ID
-          channelId: live # Deploys to the live hosting URL
+          channelId: live # Deploys to the primary live URL (your-project-id.web.app)
         env:
-          # If your VITE_FIREBASE_API_KEY is sensitive and needed during build/runtime
-          VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}' # Example if you want to pass it
+          # If your application's build process needs environment variables, list them here.
+          # For client-side Firebase API keys, they are often not secret and can be in code.
+          # Only add if `npm run build` needs secrets, e.g., for SSR or certain build tools.
+          VITE_FIREBASE_API_KEY: '${{ secrets.VITE_FIREBASE_API_KEY }}' # Example if you needed to pass it securely
 
-      - name: Deploy to Firebase Hosting (Preview Channel for PRs)
-        if: github.event_name == 'pull_request' # Only deploy to 'preview' for PRs
+      # Step to deploy to Firebase Hosting (Preview Channel) - runs ONLY for Pull Requests
+      - name: Deploy to Firebase Hosting (Preview)
+        if: github.event_name == 'pull_request' # Condition: only run if the trigger is a Pull Request
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PARIYASHWORLD }}' # Your Firebase service account secret
+          # This secret holds your Firebase Service Account JSON key
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PARIYASHWORLD }}'
           projectId: pariyashworld # Your Firebase Project ID
           channelId: preview # Deploys to a temporary preview URL for PRs
         env:
