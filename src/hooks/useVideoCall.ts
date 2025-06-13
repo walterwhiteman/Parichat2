@@ -1,7 +1,9 @@
 // src/hooks/useVideoCall.ts
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { db } from '../config/firebase';
-import {
+
+// IMPORTANT: Ensure db is imported first from firebase config
+import { db } from '../config/firebase'; 
+import { // Then all other Firestore functions
   collection,
   doc,
   setDoc,
@@ -14,7 +16,10 @@ import {
   where,
   serverTimestamp
 } from 'firebase/firestore';
+
 import { VideoCallState } from '../types';
+
+console.log('Firebase db object (should not be undefined here):', db); // <--- NEW LOG HERE
 
 export const useVideoCall = (roomId: string, userId: string) => {
   console.log('useVideoCall hook initialized for Room:', roomId, 'User:', userId);
@@ -35,7 +40,7 @@ export const useVideoCall = (roomId: string, userId: string) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const currentCallDocRef = useRef<any>(null); // Reference to the active call document in Firestore
 
-  const callsCollection = collection(db, 'calls');
+  const callsCollection = collection(db, 'calls'); // This is the first usage of 'db' within the hook
 
   const getIceServers = useCallback(() => ([
     { urls: 'stun:stun.l.google.com:19302' },
@@ -64,7 +69,6 @@ export const useVideoCall = (roomId: string, userId: string) => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       setCallState(prev => ({ ...prev, localStream: stream }));
-      // srcObject setting moved to useEffect for better React lifecycle management
 
       const callDoc = doc(callsCollection);
       currentCallDocRef.current = callDoc;
@@ -233,7 +237,6 @@ export const useVideoCall = (roomId: string, userId: string) => {
     }
 
     localStreamRef.current = null;
-    // remoteVideoRef.current.srcObject will be handled by useEffect cleanup
 
     if (currentCallDocRef.current) {
       try {
@@ -278,88 +281,4 @@ export const useVideoCall = (roomId: string, userId: string) => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
       if (videoTrack) {
-        videoTrack.enabled = !callState.isCameraOn;
-        setCallState(prev => ({ ...prev, isCameraOn: !prev.isCameraOn }));
-      }
-    }
-  }, [callState.isCameraOn]);
-
-
-  // Listener for incoming calls (for the callee)
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined; // Explicitly define as optional unsubscribe function
-    if (userId) {
-      console.log('Setting up listener for incoming calls for userId:', userId);
-      const q = query(callsCollection,
-        where('calleeId', '==', userId),
-        where('status', '==', 'pending')
-      );
-
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const callData = change.doc.data();
-            const callId = change.doc.id;
-            console.log(`Incoming call from ${callData.callerId} (Call ID: ${callId}).`);
-            if (!callState.isActive) {
-                console.log('Auto-answering incoming call...');
-                answerCall(callId);
-            } else {
-                console.warn('Already in a call, ignoring new incoming call.');
-            }
-          } else if (change.type === 'removed' && change.doc.data().status === 'pending') {
-            console.log('Pending incoming call was removed (caller might have hung up).');
-            if (!callState.isActive && currentCallDocRef.current?.id === change.doc.id) {
-                endCall();
-            }
-          }
-        });
-      }, (error) => {
-        console.error('Error listening for incoming calls:', error);
-      });
-    }
-
-    return () => {
-        if (unsubscribe) {
-            console.log('Cleaning up incoming call listener.');
-            unsubscribe();
-        }
-    };
-  }, [userId, callState.isActive, callsCollection, answerCall, endCall]);
-
-  // Effects for managing streams in video elements (setting srcObject)
-  useEffect(() => {
-    if (localVideoRef.current && callState.localStream) {
-      localVideoRef.current.srcObject = callState.localStream;
-    }
-    return () => {
-      if (localVideoRef.current && localVideoRef.current.srcObject === callState.localStream) {
-        localVideoRef.current.srcObject = null;
-      }
-    };
-  }, [callState.localStream, localVideoRef]);
-
-  useEffect(() => {
-    if (remoteVideoRef.current && callState.remoteStream) {
-      remoteVideoRef.current.srcObject = callState.remoteStream;
-    }
-    return () => {
-      if (remoteVideoRef.current && remoteVideoRef.current.srcObject === callState.remoteStream) {
-        remoteVideoRef.current.srcObject = null;
-      }
-    };
-  }, [callState.remoteStream, remoteVideoRef]);
-
-
-  return {
-    callState,
-    localVideoRef,
-    remoteVideoRef,
-    startCall,
-    endCall,
-    toggleMinimize,
-    toggleMute,
-    toggleCamera,
-    answerCall
-  };
-};
+        videoTrack
