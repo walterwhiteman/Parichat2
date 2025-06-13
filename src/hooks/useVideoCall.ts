@@ -1,12 +1,9 @@
 // src/hooks/useVideoCall.ts
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-// Import the Firebase app instance
-import firebaseApp from '../config/firebase'; // Import the app instance (default export)
-
-// Import getFirestore directly here, and then get the db instance from firebaseApp
+// Import db from config/firebase (now it's correctly exported there)
+import { db } from '../config/firebase';
 import {
-  getFirestore, // Import getFirestore directly
   collection,
   doc,
   setDoc,
@@ -22,9 +19,8 @@ import {
 
 import { VideoCallState } from '../types';
 
-// Get db instance here, using the imported firebaseApp
-const db = getFirestore(firebaseApp);
-console.log('Firebase db object (derived directly in hook file):', db);
+// The console.log(db) will still work as it imports the object
+console.log('Firebase db object (imported from config):', db);
 
 export const useVideoCall = (roomId: string, userId: string) => {
   console.log('useVideoCall hook initialized for Room:', roomId, 'User:', userId);
@@ -273,9 +269,9 @@ export const useVideoCall = (roomId: string, userId: string) => {
   const toggleMute = useCallback(() => {
     console.log('toggleMute called. Current muted state:', callState.isMuted);
     if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0]; // Corrected to localStreamRef.current
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = !callState.isMuted; // Corrected logic to toggle
+        audioTrack.enabled = !callState.isMuted;
         setCallState(prev => ({ ...prev, isMuted: !prev.isMuted }));
       }
     }
