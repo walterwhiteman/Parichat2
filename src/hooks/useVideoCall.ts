@@ -14,7 +14,8 @@ import {
   deleteDoc,
   query,
   where,
-  serverTimestamp
+  serverTimestamp,
+  CollectionReference // Import CollectionReference type
 } from 'firebase/firestore';
 
 import { VideoCallState } from '../types';
@@ -36,18 +37,32 @@ export const useVideoCall = (roomId: string, userId: string) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const currentCallDocRef = useRef<any>(null); // Reference to the active call document in Firestore
 
-  const callsCollection = collection(db, 'calls');
+  // CHANGE: Initialize callsCollection lazily or within functions
+  // Instead of a top-level const, use a useRef to hold the collection reference
+  const callsCollectionRef = useRef<CollectionReference | null>(null);
+
+  // Initialize callsCollectionRef once when db is available
+  useEffect(() => {
+    if (db) {
+      callsCollectionRef.current = collection(db, 'calls');
+    }
+  }, []); // Empty dependency array means this runs once on mount
 
   const getIceServers = useCallback(() => ([
     { urls: 'stun:stun.l.google.com:19302' },
     {
-      urls: 'turn:relay1.expressturn.com:3480', // Use your TURN server
-      username: '000000002065154288',            // Use your TURN username
-      credential: 'JxT1ZAOBKteZXNPBBNdcCU+7gFA='  // Use your TURN credential
+      urls: 'turn:relay1.expressturn.com:3480',
+      username: '000000002065154288',
+      credential: 'JxT1ZAOBKteZXNPBBNdcCU+7gFA='
     }
   ]), []);
 
   const startCall = useCallback(async (calleeId: string) => {
+    // Ensure callsCollectionRef is initialized before use
+    if (!callsCollectionRef.current) {
+        console.error("Firestore 'calls' collection not initialized.");
+        return;
+    }
     if (callState.isActive) return;
     try {
       setCallState(prev => ({ ...prev, isActive: true, status: 'pending' }));
@@ -56,7 +71,7 @@ export const useVideoCall = (roomId: string, userId: string) => {
       localStreamRef.current = stream;
       setCallState(prev => ({ ...prev, localStream: stream }));
 
-      const callDoc = doc(callsCollection);
+      const callDoc = doc(callsCollectionRef.current); // Use the ref here
       currentCallDocRef.current = callDoc;
 
       await setDoc(callDoc, {
@@ -123,6 +138,11 @@ export const useVideoCall = (roomId: string, userId: string) => {
   }, [roomId, userId, getIceServers, callState.isActive, endCall]);
 
   const answerCall = useCallback(async (callDocId: string) => {
+    // Ensure callsCollectionRef is initialized before use
+    if (!callsCollectionRef.current) {
+        console.error("Firestore 'calls' collection not initialized.");
+        return;
+    }
     if (callState.isActive) return;
     try {
       setCallState(prev => ({ ...prev, isActive: true, status: 'active' }));
@@ -131,7 +151,7 @@ export const useVideoCall = (roomId: string, userId: string) => {
       localStreamRef.current = stream;
       setCallState(prev => ({ ...prev, localStream: stream }));
 
-      const callDoc = doc(callsCollection, callDocId);
+      const callDoc = doc(callsCollectionRef.current, callDocId); // Use the ref here
       currentCallDocRef.current = callDoc;
 
       const offerCandidates = collection(callDoc, 'offerCandidates');
@@ -144,13 +164,6 @@ export const useVideoCall = (roomId: string, userId: string) => {
       stream.getTracks().forEach(track => {
         peerConnection.current?.addTrack(track, stream);
       });
-
-      peerConnection.current.ontrack = (event) => {
-        if (event.streams && event.streams[0]) {
-          const remoteStream = event.streams[0];
-          setCallState(prev => ({ ...prev, remoteStream: remoteStream }));
-        }
-      };
 
       peerConnection.current.onicecandidate = async (event) => {
         if (event.candidate) {
@@ -247,35 +260,39 @@ export const useVideoCall = (roomId: string, userId: string) => {
 
   // Listener for incoming calls (for the callee)
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    if (userId) {
-      const q = query(callsCollection,
-        where('calleeId', '==', userId),
-        where('status', '==', 'pending')
-      );
-
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const callData = change.doc.data();
-            const callId = change.doc.id;
-            if (!callState.isActive) {
-              answerCall(callId);
-            }
-          } else if (change.type === 'removed' && change.doc.data().status === 'pending') {
-            if (!callState.isActive && currentCallDocRef.current?.id === change.doc.id) {
-              endCall();
-            }
-          }
-        });
-      });
+    // Ensure callsCollectionRef is initialized before use
+    if (!callsCollectionRef.current || !userId) {
+        return;
     }
+
+    let unsubscribe: (() => void) | undefined;
+    const q = query(callsCollectionRef.current, // Use the ref here
+      where('calleeId', '==', userId),
+      where('status', '==', 'pending')
+    );
+
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const callData = change.doc.data();
+          const callId = change.doc.id;
+          if (!callState.isActive) {
+            answerCall(callId);
+          }
+        } else if (change.type === 'removed' && change.doc.data().status === 'pending') {
+          if (!callState.isActive && currentCallDocRef.current?.id === change.doc.id) {
+            endCall();
+          }
+        }
+      });
+    });
+
     return () => {
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, [userId, callState.isActive, callsCollection, answerCall, endCall]);
+  }, [userId, callState.isActive, answerCall, endCall]); // callsCollectionRef is not a dependency here
 
   useEffect(() => {
     if (localVideoRef.current && callState.localStream) {
