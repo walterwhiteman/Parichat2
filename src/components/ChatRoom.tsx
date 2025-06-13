@@ -1,12 +1,10 @@
-// src/components/ChatRoom.tsx
-
 import React, { useEffect, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
-import VideoCallOverlay from './VideoCallOverlay'; // <-- UNCOMMENTED
+import VideoCallOverlay from './VideoCallOverlay';
 import { useFirebase } from '../hooks/useFirebase';
-import { useVideoCall } from '../hooks/useVideoCall'; // <-- UNCOMMENTED
+import { useVideoCall } from '../hooks/useVideoCall';
 
 interface ChatRoomProps {
   roomId: string;
@@ -32,7 +30,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     addReaction
   } = useFirebase(roomId, userId, username);
 
-  // Video call hook is now active
   const {
     callState,
     localVideoRef,
@@ -41,9 +38,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     endCall,
     toggleMinimize,
     toggleMute,
-    toggleCamera,
-    answerCall
-  } = useVideoCall(roomId, userId);
+    toggleCamera
+  } = useVideoCall();
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -70,15 +66,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       <ChatHeader
         roomId={roomId}
         users={users}
-        // This is the actual video call initiation logic
-        onVideoCall={() => {
-            const otherUser = users.find(user => user.id !== userId);
-            if (otherUser) {
-                startCall(otherUser.id);
-            } else {
-                console.warn("No other user in the room to call!");
-            }
-        }}
+        onVideoCall={startCall}
         onLeaveRoom={onLeaveRoom}
       />
 
@@ -112,7 +100,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         onTyping={setTypingStatus}
       />
 
-      {/* Video call overlay is now active */}
+      {/* Video call overlay */}
       <VideoCallOverlay
         callState={callState}
         localVideoRef={localVideoRef}
