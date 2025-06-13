@@ -8,10 +8,8 @@ import {
   getDoc,
   query,
   orderBy,
-  limit,
   onSnapshot,
   serverTimestamp,
-  where,
   updateDoc
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -57,7 +55,7 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
     } catch (error) {
       console.error('Error sending message to Firestore:', error);
     }
-  }, [roomId, userId, username]); // Dependencies for useCallback
+  }, [roomId, userId, username]);
 
   // --- Upload File (Storage) ---
   const uploadFile = useCallback(async (file: File): Promise<string> => {
@@ -87,11 +85,9 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
   const addReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!roomId || !userId) return;
     try {
-      // Use arrayUnion/arrayRemove if you want multiple users to react to the same message with distinct emojis
-      // For simplicity, this overwrites if the same user reacts again
       const reactionDocRef = doc(db, 'rooms', roomId, 'messages', messageId);
       await updateDoc(reactionDocRef, {
-        [`reactions.${userId}`]: emoji // Adds/updates a field like 'reactions.user123': '👍'
+        [`reactions.${userId}`]: emoji
       });
       console.log(`Reaction ${emoji} added by ${userId} to message ${messageId}`);
     } catch (error) {
@@ -104,30 +100,18 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
   useEffect(() => {
     if (!roomId || !userId) return;
 
-    // --- User Presence & Room Full Logic ---
+    // --- User Presence Setup (async function) ---
     const setupUserPresence = async () => {
       try {
         const roomSnapshot = await getDoc(roomDocRef);
         const roomData = roomSnapshot.data() as Room;
 
-        if (roomData && roomData.users) {
-          const existingUsers = Object.values(roomData.users) as User[];
-          const onlineUsers = existingUsers.filter(user => user.isOnline);
-          const existingUser = existingUsers.find(user => user.username === username);
+        // Note: For 'users' subcollection, getting roomData.users directly might not be ideal.
+        // You're listening to usersCollectionRef below for real-time updates.
+        // This 'room full' logic would be better managed via a Cloud Function on user joins/leaves
+        // or by directly querying the usersCollectionRef here.
+        // For now, we'll proceed assuming the user can join.
 
-          // If room is full (2 users) and this user is not one of them, don't allow entry
-          // This logic is more complex with Firestore as you need to manage user documents
-          // For simplicity, we'll allow joining, but you might want to implement a more robust
-          // solution, e.g., a "join" cloud function that checks user count.
-          // For now, let's proceed and mark user online.
-          if (onlineUsers.length >= 2 && !existingUser) {
-             console.warn('Room is full. Consider implementing stricter join logic.');
-             // alert('Room is full. Only 2 users are allowed.'); // This might be disruptive
-             // return; // If you want to prevent entry
-          }
-        }
-
-        // Set user as online and add/update their info in the subcollection
         await setDoc(userDocRef, {
           id: userId,
           username: username,
@@ -136,25 +120,26 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
           isTyping: false
         }, { merge: true }); // Use merge: true to update existing fields without overwriting the whole document
 
-        // Cleanup function for when component unmounts or dependencies change
-        return () => {
-          // Mark user as offline when component unmounts or hook dependencies change
-          updateDoc(userDocRef, {
-            isOnline: false,
-            lastSeen: serverTimestamp(),
-            isTyping: false
-          }).catch(error => console.error("Error setting user offline on unmount:", error));
-        };
-
       } catch (error) {
         console.error('Error during user presence setup:', error);
       }
     };
 
-    const userPresenceCleanup = setupUserPresence(); // Call the async function
+    // --- Cleanup function for user presence (run when component unmounts) ---
+    const cleanupUserPresence = () => {
+      // Mark user as offline when component unmounts or hook dependencies change
+      updateDoc(userDocRef, {
+        isOnline: false,
+        lastSeen: serverTimestamp(),
+        isTyping: false
+      }).catch(error => console.error("Error setting user offline on unmount:", error));
+    };
+
+    // Call the setup function when effect runs
+    setupUserPresence();
 
     // --- Real-time Listeners for Users and Messages ---
-    const usersQuery = query(usersCollectionRef, orderBy('lastSeen', 'desc')); // Order users for display
+    const usersQuery = query(usersCollectionRef, orderBy('lastSeen', 'desc'));
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
       const fetchedUsers: User[] = [];
       snapshot.forEach(doc => {
@@ -166,11 +151,11 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
       console.error('Error fetching users:', error);
     });
 
-    const messagesQuery = query(messagesCollectionRef, orderBy('timestamp', 'asc')); // Order messages by time
+    const messagesQuery = query(messagesCollectionRef, orderBy('timestamp', 'asc'));
     const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
       const fetchedMessages: Message[] = [];
       snapshot.forEach(doc => {
-        fetchedMessages.push({ id: doc.id, ...doc.data() } as Message); // Add doc.id
+        fetchedMessages.push({ id: doc.id, ...doc.data() } as Message);
       });
       setMessages(fetchedMessages);
       console.log('Messages updated:', fetchedMessages);
@@ -178,12 +163,9 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
       console.error('Error fetching messages:', error);
     });
 
-
-    // --- Cleanup Listeners ---
+    // --- Overall Cleanup for useEffect ---
     return () => {
-      if (typeof userPresenceCleanup === 'function') { // Check if cleanup function was returned
-        userPresenceCleanup();
-      }
+      cleanupUserPresence(); // Mark user offline
       unsubscribeUsers();
       unsubscribeMessages();
       console.log('Firebase listeners cleaned up.');
@@ -193,7 +175,7 @@ export const useFirebase = (roomId: string, userId: string, username: string) =>
 
   // Return the necessary states and functions
   return {
-    room, // Room data itself is not directly listened to in this setup but can be added
+    room,
     messages,
     users,
     sendMessage,
