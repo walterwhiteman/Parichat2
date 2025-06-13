@@ -20,7 +20,7 @@ import {
 import { VideoCallState } from '../types';
 
 // The console.log(db) will still work as it imports the object
-console.log('Firebase db object (imported from config):', db);
+// console.log('Firebase db object (imported from config):', db);
 
 export const useVideoCall = (roomId: string, userId: string) => {
   console.log('useVideoCall hook initialized for Room:', roomId, 'User:', userId);
