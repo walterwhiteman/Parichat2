@@ -4,9 +4,9 @@ import React, { useEffect, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
-import VideoCallOverlay from './VideoCallOverlay'; // <-- UNCOMMENT
+import VideoCallOverlay from './VideoCallOverlay'; // <-- UNCOMMENTED
 import { useFirebase } from '../hooks/useFirebase';
-import { useVideoCall } from '../hooks/useVideoCall'; // <-- UNCOMMENT
+import { useVideoCall } from '../hooks/useVideoCall'; // <-- UNCOMMENTED
 
 interface ChatRoomProps {
   roomId: string;
@@ -32,7 +32,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     addReaction
   } = useFirebase(roomId, userId, username);
 
-  // UNCOMMENT ALL VIDEO CALL RELATED CODE
+  // Video call hook is now active
   const {
     callState,
     localVideoRef,
@@ -70,7 +70,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       <ChatHeader
         roomId={roomId}
         users={users}
-        // Restore actual startCall logic
+        // This is the actual video call initiation logic
         onVideoCall={() => {
             const otherUser = users.find(user => user.id !== userId);
             if (otherUser) {
@@ -112,8 +112,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         onTyping={setTypingStatus}
       />
 
-      {/* Video call overlay */}
-      <VideoCallOverlay // <-- UNCOMMENT
+      {/* Video call overlay is now active */}
+      <VideoCallOverlay
         callState={callState}
         localVideoRef={localVideoRef}
         remoteVideoRef={remoteVideoRef}
