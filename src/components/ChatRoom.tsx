@@ -1,10 +1,12 @@
+// src/components/ChatRoom.tsx
+
 import React, { useEffect, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import VideoCallOverlay from './VideoCallOverlay';
 import { useFirebase } from '../hooks/useFirebase';
-import { useVideoCall } from '../hooks/useVideoCall';
+import { useVideoCall } from '../hooks/useVideoCall'; // Ensure this import is correct
 
 interface ChatRoomProps {
   roomId: string;
@@ -30,6 +32,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     addReaction
   } = useFirebase(roomId, userId, username);
 
+  // CORRECTED LINE HERE: Pass roomId and userId to useVideoCall
   const {
     callState,
     localVideoRef,
@@ -38,8 +41,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     endCall,
     toggleMinimize,
     toggleMute,
-    toggleCamera
-  } = useVideoCall();
+    toggleCamera,
+    answerCall // Make sure to destructure answerCall if you're using it
+  } = useVideoCall(roomId, userId); // <--- ADDED roomId and userId arguments
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -66,7 +70,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       <ChatHeader
         roomId={roomId}
         users={users}
-        onVideoCall={startCall}
+        // IMPORTANT: The startCall function now needs a calleeId argument.
+        // You'll need to decide how to get the other user's ID in a 1-to-1 chat.
+        // For now, I'm passing a placeholder. You'll need to adapt this.
+        // Example: If you have an `otherUserId` from your `users` list:
+        onVideoCall={() => {
+            const otherUser = users.find(user => user.id !== userId);
+            if (otherUser) {
+                startCall(otherUser.id);
+            } else {
+                console.warn("No other user in the room to call!");
+            }
+        }}
         onLeaveRoom={onLeaveRoom}
       />
 
@@ -109,6 +124,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         onToggleMinimize={toggleMinimize}
         onToggleMute={toggleMute}
         onToggleCamera={toggleCamera}
+        // You'll need to pass 'answerCall' and potentially 'incomingCall' state
+        // to VideoCallOverlay or manage the incoming call UI directly in ChatRoom.
       />
     </div>
   );
