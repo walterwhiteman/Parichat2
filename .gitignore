@@ -5,6 +5,11 @@ node_modules/
 dist/
 build/
 # if you use Create React App style build
+
+# Firebase cache
+.firebase/
+# <-- Add this line
+
 .env
 # environment vad
 # Logs
