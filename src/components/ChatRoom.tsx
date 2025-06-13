@@ -4,9 +4,9 @@ import React, { useEffect, useRef } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
-// import VideoCallOverlay from './VideoCallOverlay'; // <-- COMMENT OUT
+import VideoCallOverlay from './VideoCallOverlay'; // <-- UNCOMMENT
 import { useFirebase } from '../hooks/useFirebase';
-// import { useVideoCall } from '../hooks/useVideoCall'; // <-- COMMENT OUT
+import { useVideoCall } from '../hooks/useVideoCall'; // <-- UNCOMMENT
 
 interface ChatRoomProps {
   roomId: string;
@@ -32,18 +32,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     addReaction
   } = useFirebase(roomId, userId, username);
 
-  // COMMENT OUT ALL VIDEO CALL RELATED CODE
-  // const {
-  //   callState,
-  //   localVideoRef,
-  //   remoteVideoRef,
-  //   startCall,
-  //   endCall,
-  //   toggleMinimize,
-  //   toggleMute,
-  //   toggleCamera,
-  //   answerCall
-  // } = useVideoCall(roomId, userId);
+  // UNCOMMENT ALL VIDEO CALL RELATED CODE
+  const {
+    callState,
+    localVideoRef,
+    remoteVideoRef,
+    startCall,
+    endCall,
+    toggleMinimize,
+    toggleMute,
+    toggleCamera,
+    answerCall
+  } = useVideoCall(roomId, userId);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -70,15 +70,15 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       <ChatHeader
         roomId={roomId}
         users={users}
-        // onVideoCall={() => {
-        //     const otherUser = users.find(user => user.id !== userId);
-        //     if (otherUser) {
-        //         startCall(otherUser.id);
-        //     } else {
-        //         console.warn("No other user in the room to call!");
-        //     }
-        // }}
-        onVideoCall={() => console.log('Video call disabled for testing.')} // <-- Replace with a dummy function
+        // Restore actual startCall logic
+        onVideoCall={() => {
+            const otherUser = users.find(user => user.id !== userId);
+            if (otherUser) {
+                startCall(otherUser.id);
+            } else {
+                console.warn("No other user in the room to call!");
+            }
+        }}
         onLeaveRoom={onLeaveRoom}
       />
 
@@ -113,7 +113,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       />
 
       {/* Video call overlay */}
-      {/* <VideoCallOverlay
+      <VideoCallOverlay // <-- UNCOMMENT
         callState={callState}
         localVideoRef={localVideoRef}
         remoteVideoRef={remoteVideoRef}
@@ -121,7 +121,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         onToggleMinimize={toggleMinimize}
         onToggleMute={toggleMute}
         onToggleCamera={toggleCamera}
-      /> */}
+      />
     </div>
   );
 };
