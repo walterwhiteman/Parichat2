@@ -3,8 +3,10 @@ node_modules/
 
 # Build artifacts
 dist/
-build/ # if you use Create React App style build
-.env # environment vad
+build/
+# if you use Create React App style build
+.env
+# environment vad
 # Logs
 *.log
 npm-debug.log*
