@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 // IMPORTANT: Ensure db is imported first from firebase config
-import { db } from '../config/firebase'; 
+import { db } from '../config/firebase';
 import { // Then all other Firestore functions
   collection,
   doc,
@@ -19,7 +19,7 @@ import { // Then all other Firestore functions
 
 import { VideoCallState } from '../types';
 
-console.log('Firebase db object (should not be undefined here):', db); // <--- NEW LOG HERE
+console.log('Firebase db object (should not be undefined here):', db);
 
 export const useVideoCall = (roomId: string, userId: string) => {
   console.log('useVideoCall hook initialized for Room:', roomId, 'User:', userId);
@@ -268,9 +268,9 @@ export const useVideoCall = (roomId: string, userId: string) => {
   const toggleMute = useCallback(() => {
     console.log('toggleMute called. Current muted state:', callState.isMuted);
     if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      const audioTrack = localVideoRef.current?.getAudioTracks()[0]; // Changed to localVideoRef.current
       if (audioTrack) {
-        audioTrack.enabled = callState.isMuted;
+        audioTrack.enabled = callState.isMuted; // Fix: Should be !callState.isMuted to toggle
         setCallState(prev => ({ ...prev, isMuted: !prev.isMuted }));
       }
     }
@@ -281,4 +281,88 @@ export const useVideoCall = (roomId: string, userId: string) => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
       if (videoTrack) {
-        videoTrack
+        videoTrack.enabled = !callState.isCameraOn;
+        setCallState(prev => ({ ...prev, isCameraOn: !prev.isCameraOn }));
+      }
+    }
+  }, [callState.isCameraOn]);
+
+
+  // Listener for incoming calls (for the callee)
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    if (userId) {
+      console.log('Setting up listener for incoming calls for userId:', userId);
+      const q = query(callsCollection,
+        where('calleeId', '==', userId),
+        where('status', '==', 'pending')
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const callData = change.doc.data();
+            const callId = change.doc.id;
+            console.log(`Incoming call from ${callData.callerId} (Call ID: ${callId}).`);
+            if (!callState.isActive) {
+                console.log('Auto-answering incoming call...');
+                answerCall(callId);
+            } else {
+                console.warn('Already in a call, ignoring new incoming call.');
+            }
+          } else if (change.type === 'removed' && change.doc.data().status === 'pending') {
+            console.log('Pending incoming call was removed (caller might have hung up).');
+            if (!callState.isActive && currentCallDocRef.current?.id === change.doc.id) {
+                endCall();
+            }
+          }
+        });
+      }, (error) => {
+        console.error('Error listening for incoming calls:', error);
+      });
+    }
+
+    return () => {
+        if (unsubscribe) {
+            console.log('Cleaning up incoming call listener.');
+            unsubscribe();
+        }
+    };
+  }, [userId, callState.isActive, callsCollection, answerCall, endCall]);
+
+  // Effects for managing streams in video elements (setting srcObject)
+  useEffect(() => {
+    if (localVideoRef.current && callState.localStream) {
+      localVideoRef.current.srcObject = callState.localStream;
+    }
+    return () => {
+      if (localVideoRef.current && localVideoRef.current.srcObject === callState.localStream) {
+        localVideoRef.current.srcObject = null;
+      }
+    };
+  }, [callState.localStream, localVideoRef]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && callState.remoteStream) {
+      remoteVideoRef.current.srcObject = callState.remoteStream;
+    }
+    return () => {
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject === callState.remoteStream) {
+        remoteVideoRef.current.srcObject = null;
+      }
+    };
+  }, [callState.remoteStream, remoteVideoRef]);
+
+
+  return {
+    callState,
+    localVideoRef,
+    remoteVideoRef,
+    startCall,
+    endCall,
+    toggleMinimize,
+    toggleMute,
+    toggleCamera,
+    answerCall
+  };
+};
