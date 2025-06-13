@@ -1,5 +1,3 @@
-// src/components/VideoCallOverlay.tsx
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Minimize2, Maximize2, Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { VideoCallState } from '../types';
@@ -9,7 +7,7 @@ interface VideoCallOverlayProps {
   localVideoRef: React.RefObject<HTMLVideoElement>;
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
   onEndCall: () => void;
-  onToggleMinimize: () => void; // This is the function you need to call
+  onToggleMinimize: () => void;
   onToggleMute: () => void;
   onToggleCamera: () => void;
 }
@@ -19,7 +17,7 @@ const VideoCallOverlay: React.FC<VideoCallOverlayProps> = ({
   localVideoRef,
   remoteVideoRef,
   onEndCall,
-  onToggleMinimize, // Destructure it here
+  onToggleMinimize,
   onToggleMute,
   onToggleCamera
 }) => {
@@ -93,9 +91,6 @@ const VideoCallOverlay: React.FC<VideoCallOverlayProps> = ({
         autoPlay
         playsInline
         className="w-full h-full object-cover"
-        // Ensure remote stream is attached if available
-        // You might need an effect here or set srcObject in useVideoCall
-        // srcObject={callState.remoteStream || null} // This line is not needed if handled by ref.current.srcObject in hook
       />
 
       {/* Local video (Picture-in-Picture) - Flipped like selfie */}
@@ -110,8 +105,6 @@ const VideoCallOverlay: React.FC<VideoCallOverlayProps> = ({
           playsInline
           muted
           className="w-full h-full object-cover transform scale-x-[-1]"
-          // Ensure local stream is attached if available
-          // srcObject={callState.localStream || null} // This line is not needed if handled by ref.current.srcObject in hook
         />
       </div>
 
@@ -132,19 +125,16 @@ const VideoCallOverlay: React.FC<VideoCallOverlayProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onToggleMinimize(); // <--- CORRECTED THIS LINE!
+            onToggleMinimize();
           }}
-          // The conditional class setting should be outside the onClick
-          className={`rounded-full transition-colors duration-200 ${
-            callState.isMinimized 
-              ? 'p-1 bg-gray-700 hover:bg-gray-600 text-white' 
-              : 'p-3 bg-gray-700 hover:bg-gray-600 text-white' // Added common styles
+          className={`bg-gray-700 hover:bg-gray-600 text-white rounded-full transition-colors duration-200 ${
+            callState.isMinimized ? 'p-1' : 'p-3'
           }`}
         >
           {callState.isMinimized ? (
-            <Maximize2 className={callState.isMinimized ? 'w-3 h-3' : 'w-5 h-5'} /> // Adjusted class for clarity
+            <Maximize2 className="w-3 h-3" />
           ) : (
-            <Minimize2 className={callState.isMinimized ? 'w-3 h-3' : 'w-5 h-5'} /> // Adjusted class for clarity
+            <Minimize2 className="w-5 h-5" />
           )}
         </button>
 
